@@ -1,3 +1,6 @@
+# FIND LICENSE KEY IN FOLDER
+
+
 # Steam Account Manager
 
 Steam Account Manager is a Python application built using Tkinter for managing and launching multiple Steam accounts.
