@@ -4,6 +4,8 @@ import json
 from cryptography.fernet import Fernet, InvalidToken
 import pyperclip
 import secrets
+import subprocess
+import atexit  # Added import for atexit
 from ttkthemes import ThemedTk
 from zxcvbn import zxcvbn
 
@@ -18,7 +20,22 @@ class SteamAccountManager:
         self.license_key = None
         self.fernet = None
 
+        # Create a container for frames
+        self.frames_container = ttk.Frame(self.root)
+        self.frames_container.pack(fill='both', expand=True)
+
+        # Create a frame for the license entry
+        self.license_frame = ttk.Frame(self.frames_container)
         self.create_license_frame()
+
+        # Create a frame for the accounts
+        self.accounts_frame = ttk.Frame(self.frames_container)
+        self.create_accounts_frame()  # Create the accounts frame initially
+
+        self.show_frame(self.license_frame)  # Show the license frame initially
+
+        # Register the function for auto-login when the script exits
+        atexit.register(self.launch_steam_with_last_account)
 
     def load_real_license_key(self):
         try:
@@ -27,6 +44,16 @@ class SteamAccountManager:
                 return config_data.get("real_license_key", "")
         except FileNotFoundError:
             return ""
+
+    def import_accounts(self):
+        try:
+            with open("accounts.json", "rb") as file:
+                encrypted_data = file.read()
+                decrypted_data = self.fernet.decrypt(encrypted_data).decode()
+                self.accounts = json.loads(decrypted_data)
+                self.update_accounts_tree(self.accounts_tree)
+        except (FileNotFoundError, json.JSONDecodeError, InvalidToken):
+            pass  # If import fails, proceed with an empty accounts dictionary
 
     def load_accounts(self):
         try:
@@ -43,25 +70,19 @@ class SteamAccountManager:
             file.write(encrypted_data)
 
     def create_license_frame(self):
-        license_frame = ttk.Frame(self.root)
-
-        ttk.Label(license_frame, text="License Key:").grid(row=0, column=0, padx=10, pady=10)
-        license_entry = ttk.Entry(license_frame, show='*')
+        ttk.Label(self.license_frame, text="License Key:").grid(row=0, column=0, padx=10, pady=10)
+        license_entry = ttk.Entry(self.license_frame, show='*')
         license_entry.grid(row=0, column=1, padx=10, pady=10)
 
-        ttk.Button(license_frame, text="Unlock", command=lambda: self.unlock(license_entry.get())).grid(row=1, column=0, columnspan=2, pady=10)
-
-        license_frame.grid(row=0, column=0, padx=50, pady=50)
+        ttk.Button(self.license_frame, text="Unlock", command=lambda: self.unlock(license_entry.get())).grid(row=1, column=0, columnspan=2, pady=10)
 
     def create_accounts_frame(self):
-        accounts_frame = ttk.Frame(self.root)
+        ttk.Button(self.accounts_frame, text="Add Account", command=self.add_account).grid(row=0, column=0, padx=10, pady=10)
+        ttk.Button(self.accounts_frame, text="Remove Account", command=self.remove_account).grid(row=0, column=1, padx=10, pady=10)
+        ttk.Button(self.accounts_frame, text="Launch Steam", command=self.launch_steam).grid(row=0, column=2, padx=10, pady=10)
+        ttk.Button(self.accounts_frame, text="Export Accounts", command=self.export_accounts).grid(row=0, column=3, padx=10, pady=10)
 
-        ttk.Button(accounts_frame, text="Add Account", command=self.add_account).grid(row=0, column=0, padx=10, pady=10)
-        ttk.Button(accounts_frame, text="Remove Account", command=self.remove_account).grid(row=0, column=1, padx=10, pady=10)
-        ttk.Button(accounts_frame, text="Launch Steam", command=self.launch_steam).grid(row=0, column=2, padx=10, pady=10)
-        ttk.Button(accounts_frame, text="Export Accounts", command=self.export_accounts).grid(row=0, column=3, padx=10, pady=10)
-
-        self.accounts_tree = ttk.Treeview(accounts_frame, columns=("Username", "Password", "Strength"), show="headings")
+        self.accounts_tree = ttk.Treeview(self.accounts_frame, columns=("Username", "Password", "Strength"), show="headings")
         self.accounts_tree.heading("Username", text="Username")
         self.accounts_tree.heading("Password", text="Password")
         self.accounts_tree.heading("Strength", text="Strength")
@@ -72,7 +93,11 @@ class SteamAccountManager:
 
         self.update_accounts_tree(self.accounts_tree)
 
-        accounts_frame.grid(row=1, column=0, padx=50, pady=50)
+    def show_frame(self, frame):
+        # Hide all frames and then show the specified frame
+        for child in self.frames_container.winfo_children():
+            child.pack_forget()
+        frame.pack(fill='both', expand=True)
 
     def update_accounts_tree(self, tree):
         for item in tree.get_children():
@@ -86,8 +111,9 @@ class SteamAccountManager:
         if entered_key in self.valid_license_keys:
             self.license_key = entered_key
             self.fernet = Fernet(Fernet.generate_key())
-            self.accounts = self.load_accounts()
+            self.import_accounts()  # Move this line here
             self.create_accounts_frame()
+            self.show_frame(self.accounts_frame)  # Switch to the accounts frame after unlocking
         else:
             messagebox.showerror("Invalid License Key", "The entered license key is invalid.")
 
@@ -132,7 +158,16 @@ class SteamAccountManager:
         selected_item = self.accounts_tree.focus()
         if selected_item:
             account_name = self.accounts_tree.item(selected_item, "values")[0]
-            self.login_steam(account_name)
+
+            # Specify the path to your Steam executable
+            steam_executable_path = "C:\\Program Files (x86)\\Steam\\Steam.exe"
+            username = self.accounts[account_name]["username"]
+            password = self.accounts[account_name]["password"]
+
+            command = f'"{steam_executable_path}" -login {username} {password}'
+            subprocess.Popen(command, shell=True)
+
+            messagebox.showinfo("Info", f"Launching Steam for account: {account_name}")
         else:
             messagebox.showinfo("Info", "Select an account to launch.")
 
@@ -167,9 +202,25 @@ class SteamAccountManager:
                 file.write(encrypted_data)
             messagebox.showinfo("Export Successful", "Accounts exported successfully.")
 
-    def run(self):
-        self.root.mainloop()
+    def launch_steam_with_last_account(self):
+        if not self.license_key:
+            return
+
+        if not self.accounts:
+            return
+
+        last_selected_account = self.accounts_tree.item(self.accounts_tree.focus(), "values")[0]
+        if last_selected_account in self.accounts:
+            account_info = self.accounts[last_selected_account]
+            username = account_info["username"]
+            password = account_info["password"]
+
+            # Specify the path to your Steam executable
+            steam_executable_path = "C:\\Program Files (x86)\\Steam\\Steam.exe"
+
+            command = f'"{steam_executable_path}" -login {username} {password}'
+            subprocess.Popen(command, shell=True)
 
 if __name__ == "__main__":
     manager = SteamAccountManager()
-    manager.run()
+    manager.root.mainloop()
