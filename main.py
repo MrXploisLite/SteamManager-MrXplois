@@ -1,13 +1,21 @@
 import tkinter as tk
 from tkinter import ttk, simpledialog, messagebox, filedialog
 import json
-from cryptography.fernet import Fernet, InvalidToken
 import pyperclip
-import secrets
 import subprocess
-import atexit  # Added import for atexit
+import atexit
+import os
 from ttkthemes import ThemedTk
 from zxcvbn import zxcvbn
+from cryptography.fernet import Fernet, InvalidToken
+import getpass
+import secrets
+import logging
+
+# Constants
+CONFIG_FILE_PATH = "config.json"
+ACCOUNTS_FILE_PATH = "accounts.json"
+STEAM_EXECUTABLE_PATH = "C:\\Program Files (x86)\\Steam\\Steam.exe"
 
 class SteamAccountManager:
     def __init__(self):
@@ -20,53 +28,54 @@ class SteamAccountManager:
         self.license_key = None
         self.fernet = None
 
-        # Create a container for frames
         self.frames_container = ttk.Frame(self.root)
         self.frames_container.pack(fill='both', expand=True)
 
-        # Create a frame for the license entry
         self.license_frame = ttk.Frame(self.frames_container)
         self.create_license_frame()
 
-        # Create a frame for the accounts
         self.accounts_frame = ttk.Frame(self.frames_container)
-        self.create_accounts_frame()  # Create the accounts frame initially
+        self.create_accounts_frame()
 
-        self.show_frame(self.license_frame)  # Show the license frame initially
+        self.show_frame(self.license_frame)
 
-        # Register the function for auto-login when the script exits
         atexit.register(self.launch_steam_with_last_account)
 
     def load_real_license_key(self):
         try:
-            with open("config.json", "r") as config_file:
+            with open(CONFIG_FILE_PATH, "r") as config_file:
                 config_data = json.load(config_file)
                 return config_data.get("real_license_key", "")
         except FileNotFoundError:
             return ""
 
+    def decrypt_accounts_data(self, encrypted_data):
+        try:
+            decrypted_data = self.fernet.decrypt(encrypted_data).decode()
+            return json.loads(decrypted_data)
+        except (json.JSONDecodeError, InvalidToken):
+            return {}
+
     def import_accounts(self):
         try:
-            with open("accounts.json", "rb") as file:
+            with open(ACCOUNTS_FILE_PATH, "rb") as file:
                 encrypted_data = file.read()
-                decrypted_data = self.fernet.decrypt(encrypted_data).decode()
-                self.accounts = json.loads(decrypted_data)
+                self.accounts = self.decrypt_accounts_data(encrypted_data)
                 self.update_accounts_tree(self.accounts_tree)
-        except (FileNotFoundError, json.JSONDecodeError, InvalidToken):
-            pass  # If import fails, proceed with an empty accounts dictionary
+        except FileNotFoundError:
+            pass
 
     def load_accounts(self):
         try:
-            with open("accounts.json", "rb") as file:
+            with open(ACCOUNTS_FILE_PATH, "rb") as file:
                 encrypted_data = file.read()
-                decrypted_data = self.fernet.decrypt(encrypted_data).decode()
-                return json.loads(decrypted_data)
-        except (FileNotFoundError, json.JSONDecodeError, InvalidToken):
+                return self.decrypt_accounts_data(encrypted_data)
+        except FileNotFoundError:
             return {}
 
     def save_accounts(self):
         encrypted_data = self.fernet.encrypt(json.dumps(self.accounts).encode())
-        with open("accounts.json", "wb") as file:
+        with open(ACCOUNTS_FILE_PATH, "wb") as file:
             file.write(encrypted_data)
 
     def create_license_frame(self):
@@ -94,7 +103,6 @@ class SteamAccountManager:
         self.update_accounts_tree(self.accounts_tree)
 
     def show_frame(self, frame):
-        # Hide all frames and then show the specified frame
         for child in self.frames_container.winfo_children():
             child.pack_forget()
         frame.pack(fill='both', expand=True)
@@ -111,9 +119,9 @@ class SteamAccountManager:
         if entered_key in self.valid_license_keys:
             self.license_key = entered_key
             self.fernet = Fernet(Fernet.generate_key())
-            self.import_accounts()  # Move this line here
+            self.import_accounts()
             self.create_accounts_frame()
-            self.show_frame(self.accounts_frame)  # Switch to the accounts frame after unlocking
+            self.show_frame(self.accounts_frame)
         else:
             messagebox.showerror("Invalid License Key", "The entered license key is invalid.")
 
@@ -129,7 +137,7 @@ class SteamAccountManager:
             if generate_password:
                 password = self.generate_strong_password()
             else:
-                password = simpledialog.askstring("Add Account", f"Enter password for {account_name}", show='*')
+                password = getpass.getpass(f"Enter password for {account_name}")
 
             if username and password:
                 self.accounts[account_name] = {"username": username, "password": password}
@@ -159,12 +167,15 @@ class SteamAccountManager:
         if selected_item:
             account_name = self.accounts_tree.item(selected_item, "values")[0]
 
-            # Specify the path to your Steam executable
-            steam_executable_path = "C:\\Program Files (x86)\\Steam\\Steam.exe"
+            # Check if Steam executable path is valid
+            if not os.path.isfile(STEAM_EXECUTABLE_PATH):
+                messagebox.showerror("Error", "Invalid Steam executable path. Please update the path in the code.")
+                return
+
             username = self.accounts[account_name]["username"]
             password = self.accounts[account_name]["password"]
 
-            command = f'"{steam_executable_path}" -login {username} {password}'
+            command = f'"{STEAM_EXECUTABLE_PATH}" -login {username} {password}'
             subprocess.Popen(command, shell=True)
 
             messagebox.showinfo("Info", f"Launching Steam for account: {account_name}")
@@ -215,12 +226,14 @@ class SteamAccountManager:
             username = account_info["username"]
             password = account_info["password"]
 
-            # Specify the path to your Steam executable
-            steam_executable_path = "C:\\Program Files (x86)\\Steam\\Steam.exe"
-
-            command = f'"{steam_executable_path}" -login {username} {password}'
+            command = f'"{STEAM_EXECUTABLE_PATH}" -login {username} {password}'
             subprocess.Popen(command, shell=True)
 
 if __name__ == "__main__":
-    manager = SteamAccountManager()
-    manager.root.mainloop()
+    logging.basicConfig(filename="steam_account_manager.log", level=logging.INFO)
+    try:
+        manager = SteamAccountManager()
+        manager.root.mainloop()
+    except Exception as e:
+        logging.exception("An error occurred:")
+        messagebox.showerror("Error", f"An error occurred: {str(e)}")
