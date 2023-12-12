@@ -11,6 +11,7 @@ from cryptography.fernet import Fernet, InvalidToken
 import getpass
 import secrets
 import logging
+from datetime import datetime
 
 # Constants
 CONFIG_FILE_PATH = "config.json"
@@ -23,8 +24,6 @@ class SteamAccountManager:
         self.root.title("Steam Account Manager")
 
         self.accounts = {}
-        self.real_license_key = self.load_real_license_key()
-        self.valid_license_keys = {self.real_license_key}
         self.license_key = None
         self.fernet = None
 
@@ -86,19 +85,26 @@ class SteamAccountManager:
         ttk.Button(self.license_frame, text="Unlock", command=lambda: self.unlock(license_entry.get())).grid(row=1, column=0, columnspan=2, pady=10)
 
     def create_accounts_frame(self):
-        ttk.Button(self.accounts_frame, text="Add Account", command=self.add_account).grid(row=0, column=0, padx=10, pady=10)
-        ttk.Button(self.accounts_frame, text="Remove Account", command=self.remove_account).grid(row=0, column=1, padx=10, pady=10)
-        ttk.Button(self.accounts_frame, text="Launch Steam", command=self.launch_steam).grid(row=0, column=2, padx=10, pady=10)
-        ttk.Button(self.accounts_frame, text="Export Accounts", command=self.export_accounts).grid(row=0, column=3, padx=10, pady=10)
+        buttons = [
+            ("Add Account", self.add_account),
+            ("Remove Account", self.remove_account),
+            ("Launch Steam", self.launch_steam),
+            ("Export Accounts", self.export_accounts),
+            ("Change Password", self.change_password),
+            ("Enable 2FA", self.enable_2fa)
+        ]
 
-        self.accounts_tree = ttk.Treeview(self.accounts_frame, columns=("Username", "Password", "Strength"), show="headings")
-        self.accounts_tree.heading("Username", text="Username")
-        self.accounts_tree.heading("Password", text="Password")
-        self.accounts_tree.heading("Strength", text="Strength")
+        for i, (text, command) in enumerate(buttons):
+            ttk.Button(self.accounts_frame, text=text, command=command).grid(row=0, column=i, padx=10, pady=10)
+
+        columns = ["Username", "Last Login", "Strength", "2FA Enabled"]
+        self.accounts_tree = ttk.Treeview(self.accounts_frame, columns=columns, show="headings")
+
+        for col in columns:
+            self.accounts_tree.heading(col, text=col)
 
         self.accounts_tree.bind("<Double-1>", self.on_tree_double_click)
-
-        self.accounts_tree.grid(row=1, column=0, columnspan=4, padx=10, pady=10)
+        self.accounts_tree.grid(row=1, column=0, columnspan=len(columns), padx=10, pady=10)
 
         self.update_accounts_tree(self.accounts_tree)
 
@@ -108,22 +114,24 @@ class SteamAccountManager:
         frame.pack(fill='both', expand=True)
 
     def update_accounts_tree(self, tree):
-        for item in tree.get_children():
-            tree.delete(item)
+        tree.delete(*tree.get_children())
 
         for account_name, account_info in self.accounts.items():
             password_strength = zxcvbn(account_info["password"]).get("score", 0)
-            tree.insert("", "end", values=(account_name, "*" * len(account_info["password"]), password_strength))
+            last_login = account_info.get("last_login", "N/A")
+            is_2fa_enabled = account_info.get("2fa_enabled", False)
+            tree.insert("", "end", values=(account_name, last_login, password_strength, is_2fa_enabled))
 
-    def unlock(self, entered_key):
-        if entered_key in self.valid_license_keys:
-            self.license_key = entered_key
-            self.fernet = Fernet(Fernet.generate_key())
-            self.import_accounts()
-            self.create_accounts_frame()
-            self.show_frame(self.accounts_frame)
-        else:
-            messagebox.showerror("Invalid License Key", "The entered license key is invalid.")
+def unlock(self, entered_key):
+    if entered_key == self.real_license_key:
+        self.license_key = entered_key
+        self.fernet = Fernet(Fernet.generate_key())
+        self.import_accounts()
+        self.create_accounts_frame()
+        self.show_frame(self.accounts_frame)
+    else:
+        messagebox.showerror("Invalid License Key", "The entered license key is invalid.")
+
 
     def add_account(self):
         if not self.license_key:
@@ -140,7 +148,7 @@ class SteamAccountManager:
                 password = getpass.getpass(f"Enter password for {account_name}")
 
             if username and password:
-                self.accounts[account_name] = {"username": username, "password": password}
+                self.accounts[account_name] = {"username": username, "password": password, "last_login": "N/A", "2fa_enabled": False}
                 self.save_accounts()
                 self.update_accounts_tree(self.accounts_tree)
 
@@ -158,6 +166,42 @@ class SteamAccountManager:
                 self.save_accounts()
                 self.update_accounts_tree(self.accounts_tree)
 
+    def change_password(self):
+        if not self.license_key:
+            messagebox.showinfo("Info", "Unlock the Account Manager first.")
+            return
+
+        selected_item = self.accounts_tree.focus()
+        if selected_item:
+            account_name = self.accounts_tree.item(selected_item, "values")[0]
+            old_password = getpass.getpass(f"Enter the current password for {account_name}")
+
+            if old_password == self.accounts[account_name]["password"]:
+                new_password = self.generate_strong_password()
+                self.accounts[account_name]["password"] = new_password
+                self.save_accounts()
+                self.update_accounts_tree(self.accounts_tree)
+                messagebox.showinfo("Password Changed", f"The password for {account_name} has been successfully changed.")
+            else:
+                messagebox.showerror("Incorrect Password", "The entered password is incorrect.")
+        else:
+            messagebox.showinfo("Info", "Select an account to change its password.")
+
+    def enable_2fa(self):
+        if not self.license_key:
+            messagebox.showinfo("Info", "Unlock the Account Manager first.")
+            return
+
+        selected_item = self.accounts_tree.focus()
+        if selected_item:
+            account_name = self.accounts_tree.item(selected_item, "values")[0]
+            self.accounts[account_name]["2fa_enabled"] = True
+            self.save_accounts()
+            self.update_accounts_tree(self.accounts_tree)
+            messagebox.showinfo("2FA Enabled", f"Two-Factor Authentication has been enabled for {account_name}.")
+        else:
+            messagebox.showinfo("Info", "Select an account to enable Two-Factor Authentication.")
+
     def launch_steam(self):
         if not self.license_key:
             messagebox.showinfo("Info", "Unlock the Account Manager first.")
@@ -174,6 +218,11 @@ class SteamAccountManager:
 
             username = self.accounts[account_name]["username"]
             password = self.accounts[account_name]["password"]
+
+            # Update last login time
+            self.accounts[account_name]["last_login"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.save_accounts()
+            self.update_accounts_tree(self.accounts_tree)
 
             command = f'"{STEAM_EXECUTABLE_PATH}" -login {username} {password}'
             subprocess.Popen(command, shell=True)
@@ -214,10 +263,7 @@ class SteamAccountManager:
             messagebox.showinfo("Export Successful", "Accounts exported successfully.")
 
     def launch_steam_with_last_account(self):
-        if not self.license_key:
-            return
-
-        if not self.accounts:
+        if not self.license_key or not self.accounts:
             return
 
         last_selected_account = self.accounts_tree.item(self.accounts_tree.focus(), "values")[0]
