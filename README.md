@@ -1,85 +1,93 @@
-# FIND LICENSE KEY IN FOLDER
-
-a
 # Steam Account Manager
 
-Steam Account Manager is a Python application built using Tkinter for managing and launching multiple Steam accounts.
-
-## Table of Contents
-
-- [Introduction](#introduction)
-- [Features](#features)
-- [Getting Started](#getting-started)
-- [Usage](#usage)
-- [Dependencies](#dependencies)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Introduction
-
-This project provides a graphical user interface for managing Steam accounts, allowing users to add, remove, and launch Steam accounts with ease. The application utilizes Tkinter for the GUI, JSON for data storage, and Fernet for basic encryption.
+A Python-based desktop application for managing multiple Steam accounts with secure password storage and automatic login functionality.
 
 ## Features
 
-- Add and remove Steam accounts
-- Launch Steam with selected account credentials
-- Copy account details to the clipboard
-- Search functionality for quickly finding accounts
+- **Multiple Account Management**: Add, remove, and manage multiple Steam accounts from a single interface
+- **Secure Password Storage**: Passwords are encrypted using Fernet (AES 128) for security
+- **Steam Integration**: Direct login to Steam with stored credentials via command line
+- **Password Strength Analysis**: Real-time password strength evaluation using zxcvbn
+- **Auto-Launch on Exit**: Automatically launches the last selected account when the application closes
+- **Password Generation**: Built-in strong password generator
+- **Cross-Platform**: Works on Windows, macOS, and Linux
+- **Encrypted Data Export**: Securely export your account data
 
-## Getting Started
+## Installation
 
-To get started with the Steam Account Manager, follow these steps:
+### Requirements
 
-1. Clone the repository:
+- Python 3.7+
+- Windows, macOS, or Linux operating system
 
-   ```bash
-   git clone https://github.com/MrXploisLite/Steam-Romy.git
+### Setup
 
-    Install the required dependencies:
+1. Clone or download this repository
+2. Install the required dependencies:
+```bash
+pip install tkinter cryptography pyperclip ttkthemes zxcvbn
+```
 
-    bash
+3. Run the application:
+```bash
+python source/main.py
+```
 
-pip install -r requirements.txt
+## Usage
 
-Run the application:
+### Adding an Account
 
-bash
+1. Click "Add Account"
+2. Enter a name for the account
+3. Enter the Steam username
+4. Choose to either enter a custom password or generate a strong one automatically
+5. The account will appear in the list with password strength indicator
 
-    python steam_account_manager.py
+### Launching Steam
 
-Usage
+1. Select an account from the list
+2. Click "Launch Steam"
+3. The application will launch Steam with the selected account logged in
+4. The selected account will be remembered for auto-launch on exit
 
-    Adding an Account: Click on "Settings" in the menu and select "Add Account." Enter the account name, username, and password when prompted.
+### Removing an Account
 
-    Removing an Account: Select an account from the list and click on "Settings" -> "Remove Account" to delete it.
+1. Select the account to remove
+2. Click "Remove Account"
+3. Confirm the removal
 
-    Launching Steam: Select an account from the list and click on "Launch" -> "Launch Steam" to start Steam with the selected account.
+### Copying Credentials
 
-    Copying Account Details: Double-click on an account to copy its username and password to the clipboard.
+Double-click on any account to copy both username and password to clipboard.
 
-    Searching for Accounts: Use the search bar to filter accounts by name.
+### Exporting Accounts
 
-Dependencies
+Click "Export Accounts" to save your encrypted account data to a JSON file.
 
-    Python 3.x
-    Tkinter
-    Cryptography library (Fernet)
-    Pyperclip
-    Ttkthemes
+## Security
 
-Install the dependencies using:
+- All passwords are encrypted using Fernet symmetric encryption (based on AES 128)
+- Passwords are never stored in plain text
+- Encrypted data is saved locally in accounts.json file
+- Password strength is evaluated to encourage strong passwords
 
-bash:
+## Auto-Launch Feature
 
-pip install tkinter cryptography pyperclip ttkthemes
+The application remembers the last selected account and automatically launches Steam with those credentials when the application exits. This is useful for quickly returning to your preferred account.
 
-Contributing
+## Development
 
-Feel free to contribute to the project by opening issues or submitting pull requests. Please follow the Contributing Guidelines.
-License
+This project uses:
+- Tkinter for GUI
+- Cryptography library for encryption
+- Pyperclip for clipboard operations
+- ttkthemes for enhanced styling
+- zxcvbn for password strength analysis
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## Contributing
 
-vbnet:
+Feel free to submit issues and enhancement requests. Pull requests are welcome!
 
-Make sure to keep the file structure, such as the presence of the `requirements.txt`, `CONTRIBUTING.md`, and `LICENSE` files, consistent with your actual repository. Feel free to modify the content to better suit your project if needed.
+## License
+
+This project is open source and available under the MIT License.
