@@ -1,21 +1,19 @@
 # Security Policy
-a
+
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
-
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+The `main` branch is the supported development version. Security fixes are applied to the latest maintained release.
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+Please report suspected vulnerabilities privately rather than opening a public issue with exploit details or credentials.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+When reporting, include:
+
+- affected version or commit
+- operating system
+- reproduction steps
+- expected vs. actual behavior
+- impact and any relevant logs (with credentials and secrets removed)
+
+Do not include Steam passwords, vault keys, API tokens, or other sensitive credentials in a report.

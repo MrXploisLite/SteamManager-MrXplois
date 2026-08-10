@@ -1,92 +1,83 @@
 # Steam Account Manager
 
-A Python-based desktop application for managing multiple Steam accounts with secure password storage and automatic login functionality.
+A Python desktop application for managing multiple Steam accounts with encrypted local storage, password generation, password-strength feedback, encrypted backups, and optional Steam launching.
 
 ## Features
 
-- **Multiple Account Management**: Add, remove, and manage multiple Steam accounts from a single interface
-- **Secure Password Storage**: Passwords are encrypted using Fernet (AES 128) for security
-- **Steam Integration**: Direct login to Steam with stored credentials via command line
-- **Password Strength Analysis**: Real-time password strength evaluation using zxcvbn
-- **Auto-Launch on Exit**: Automatically launches the last selected account when the application closes
-- **Password Generation**: Built-in strong password generator
-- **Cross-Platform**: Works on Windows, macOS, and Linux
-- **Encrypted Data Export**: Securely export your account data
+- 🔐 Fernet-encrypted local vault.
+- 🔑 Encryption key stored in the OS keyring when available, with a restricted local-key fallback.
+- 💾 Atomic vault writes to reduce corruption risk.
+- 👤 Account list never displays passwords.
+- 📋 Clipboard auto-clears after 30 seconds.
+- 🎮 Platform-aware Steam executable detection.
+- 🛡️ Steam is started with an argument list and `shell=False`.
+- 🚦 Auto-launch on close is optional and disabled by default.
+- 📦 Portable `.steamvault` backups protected by a separate password using Scrypt + Fernet.
+- ♻️ Restore support with validation before replacing the current vault.
 
-## Installation
+## Requirements
 
-### Requirements
+- Python 3.10+
+- Steam installed for the launch feature
+- Desktop environment with a working Tk backend
 
-- Python 3.7+
-- Windows, macOS, or Linux operating system
+Install:
 
-### Setup
-
-1. Clone or download this repository
-2. Install the required dependencies:
 ```bash
-pip install tkinter cryptography pyperclip ttkthemes zxcvbn
+python -m pip install -r requirements.txt
 ```
 
-3. Run the application:
+Run:
+
 ```bash
 python source/main.py
 ```
 
-## Usage
+## Backup and restore
 
-### Adding an Account
+Use **Backup** to create a portable encrypted `.steamvault` file. The backup password is independent of the machine's keyring and must be at least 12 characters.
 
-1. Click "Add Account"
-2. Enter a name for the account
-3. Enter the Steam username
-4. Choose to either enter a custom password or generate a strong one automatically
-5. The account will appear in the list with password strength indicator
+Use **Restore** to decrypt and validate a backup before replacing the current vault. Keep both the backup file and its password private; losing the backup password means the backup cannot be recovered.
 
-### Launching Steam
+The ordinary local vault key is deliberately not exported. This prevents a simple vault copy from becoming a portable credential package and keeps the local key separate from the encrypted data.
 
-1. Select an account from the list
-2. Click "Launch Steam"
-3. The application will launch Steam with the selected account logged in
-4. The selected account will be remembered for auto-launch on exit
+## Security model and limitations
 
-### Removing an Account
+The vault encrypts credentials at rest, but the application must temporarily hold a selected password in memory to perform the requested login workflow.
 
-1. Select the account to remove
-2. Click "Remove Account"
-3. Confirm the removal
+Steam's `-login` command-line interface receives the username and password as process arguments. `shell=False` prevents shell interpretation/injection, but it does **not** make command-line credentials invisible to the operating system. Other local processes with sufficient visibility may be able to observe them while Steam starts.
 
-### Copying Credentials
+For maximum security, use Steam's normal authentication flow and avoid storing a Steam password in a third-party manager. This application does not bypass Steam Guard, MFA, CAPTCHA, or other Steam security controls.
 
-Double-click on any account to copy both username and password to clipboard.
+Never commit `accounts.vault`, `vault.key`, `.steamvault` backups, or other credential material. The repository `.gitignore` excludes these local files.
 
-### Exporting Accounts
+## Existing data
 
-Click "Export Accounts" to save your encrypted account data to a JSON file.
-
-## Security
-
-- All passwords are encrypted using Fernet symmetric encryption (based on AES 128)
-- Passwords are never stored in plain text
-- Encrypted data is saved locally in accounts.json file
-- Password strength is evaluated to encourage strong passwords
-
-## Auto-Launch Feature
-
-The application remembers the last selected account and automatically launches Steam with those credentials when the application exits. This is useful for quickly returning to your preferred account.
+The original application generated its Fernet key only in memory, so an old `accounts.json` could not reliably be decrypted after restarting. The hardened version does not guess or silently migrate such data. If you have legacy data, keep it as a backup and only migrate it when you possess the original encryption key.
 
 ## Development
 
-This project uses:
-- Tkinter for GUI
-- Cryptography library for encryption
-- Pyperclip for clipboard operations
-- ttkthemes for enhanced styling
-- zxcvbn for password strength analysis
+The project includes focused tests for vault round-trips, encrypted portable backups, invalid data, and command construction. Run:
 
-## Contributing
+```bash
+pytest -q
+```
 
-Feel free to submit issues and enhancement requests. Pull requests are welcome!
+GitHub Actions also performs Python compilation and the test suite on pushes and pull requests.
+
+## Project structure
+
+```text
+.
+├── source/
+│   └── main.py
+├── tests/
+│   └── test_core.py
+├── requirements.txt
+├── README.md
+├── SECURITY.md
+└── .gitignore
+```
 
 ## License
 
